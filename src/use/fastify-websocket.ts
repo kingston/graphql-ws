@@ -3,6 +3,12 @@ import type * as fastifyWebsocket from 'fastify-websocket';
 import { makeHandler as makeHandlerCurrent } from './@fastify/websocket';
 import { ServerOptions } from '../server';
 import { ConnectionInitMessage } from '../common';
+import * as ws from 'ws';
+import { Duplex } from 'stream';
+
+interface SocketStream extends Duplex {
+  socket: ws.WebSocket;
+}
 
 /**
  * The extra that will be put in the `Context`.
@@ -16,7 +22,7 @@ export interface Extra {
    * The underlying socket connection between the server and the client.
    * The WebSocket socket is located under the `socket` parameter.
    */
-  readonly connection: fastifyWebsocket.SocketStream;
+  readonly connection: SocketStream;
   /**
    * The initial HTTP upgrade request before the actual
    * socket and connection is established.
@@ -47,5 +53,8 @@ export function makeHandler<
   keepAlive = 12_000,
 ): fastifyWebsocket.WebsocketHandler {
   // new handler can be reused, the semantics stayed the same
-  return makeHandlerCurrent(options, keepAlive);
+  return makeHandlerCurrent(
+    options,
+    keepAlive,
+  ) as unknown as fastifyWebsocket.WebsocketHandler;
 }

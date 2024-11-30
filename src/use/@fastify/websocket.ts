@@ -7,6 +7,12 @@ import {
   CloseCode,
 } from '../../common';
 import { limitCloseReason } from '../../utils';
+import * as ws from 'ws';
+import { Duplex } from 'stream';
+
+interface SocketStream extends Duplex {
+  socket: ws.WebSocket;
+}
 
 /**
  * The extra that will be put in the `Context`.
@@ -18,7 +24,7 @@ export interface Extra {
    * The underlying socket connection between the server and the client.
    * The WebSocket socket is located under the `socket` parameter.
    */
-  readonly connection: fastifyWebsocket.SocketStream;
+  readonly connection: SocketStream;
   /**
    * The initial HTTP upgrade request before the actual
    * socket and connection is established.
@@ -53,8 +59,19 @@ export function makeHandler<
   // register an error handler on first connection ONCE only
   let handlingServerEmittedErrors = false;
 
-  return function handler(connection, request) {
-    const { socket } = connection;
+  return function handler(socketOrConnection, request) {
+    const socket =
+      'socket' in socketOrConnection
+        ? (socketOrConnection.socket as ws.WebSocket)
+        : socketOrConnection;
+    const connection =
+      'socket' in socketOrConnection
+        ? socketOrConnection
+        : (ws.createWebSocketStream(socket) as SocketStream);
+
+    if (!('socket' in connection)) {
+      (connection as SocketStream).socket = socket;
+    }
 
     // might be too late, but meh
     this.websocketServer.options.handleProtocols = handleProtocols;
